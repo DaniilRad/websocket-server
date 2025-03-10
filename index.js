@@ -81,7 +81,7 @@ io.on("connection", (socket) => {
         name: item.Key,
         url: `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${item.Key}`,
       }));
-
+      console.log("Files list: " + files);
       socket.emit("files_list", files);
     } catch (error) {
       console.error("❌ List Files Error:", error);
