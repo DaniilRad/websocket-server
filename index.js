@@ -108,6 +108,8 @@ io.on("connection", (socket) => {
     if (socket.id === activeController) {
       console.log(`❌ Controller Disconnected: ${socket.id}, freeing control.`);
       activeController = null;
+    } else {
+      console.log(`❌ Page Disconnected: ${socket.id}, freeing control.`);
     }
   });
 });
