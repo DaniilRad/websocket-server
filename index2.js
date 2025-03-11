@@ -3,18 +3,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
-
-const {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-  ListObjectsV2Command,
-  DeleteObjectCommand,
-} = require("@aws-sdk/client-s3");
-const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
-
-const { NodeIO } = require("@gltf-transform/core");
-const { draco } = require("@gltf-transform/functions");
+const AWS = require("aws-sdk");
 
 dotenv.config();
 
@@ -30,18 +19,10 @@ const io = new Server(server, {
   },
 });
 
-// const s3 = new AWS.S3({
-//   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-//   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-//   region: process.env.AWS_REGION,
-// });
-
-const s3Client = new S3Client({
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   region: process.env.AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
 });
 
 const bucketName = process.env.AWS_BUCKET_NAME;
@@ -74,10 +55,7 @@ io.on("connection", (socket) => {
   //* Handle request for file list
   socket.on("get_files", async () => {
     try {
-      // const data = await s3.listObjectsV2({ Bucket: bucketName }).promise();
-      const data = await s3Client.send(
-        new ListObjectsV2Command({ Bucket: bucketName })
-      );
+      const data = await s3.listObjectsV2({ Bucket: bucketName }).promise();
       const files = data.Contents.map((item) => ({
         name: item.Key,
         url: `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${item.Key}`,
@@ -95,10 +73,7 @@ io.on("connection", (socket) => {
     console.log(`🗑 Deleting file: ${fileName}`);
 
     try {
-      // await s3.deleteObject({ Bucket: bucketName, Key: fileName }).promise();
-      await s3Client.send(
-        new DeleteObjectCommand({ Bucket: bucketName, Key: fileName })
-      );
+      await s3.deleteObject({ Bucket: bucketName, Key: fileName }).promise();
       socket.emit("delete_success", { fileName });
     } catch (error) {
       console.error("❌ Delete Error:", error);
@@ -110,27 +85,14 @@ io.on("connection", (socket) => {
     try {
       console.log(`🔗 Generating pre-signed URL for ${fileName}`);
 
-      // const params = {
-      //   Bucket: bucketName,
-      //   Key: fileName,
-      //   Expires: 300,
-      //   ContentType: fileType,
-      // };
-
-      // const uploadUrl = await s3.getSignedUrlPromise("putObject", params);
-
       const params = {
         Bucket: bucketName,
         Key: fileName,
+        Expires: 300, // URL valid for 5 minutes
         ContentType: fileType,
       };
 
-      // ✅ AWS SDK v3 method for pre-signed URL
-      const uploadUrl = await getSignedUrl(
-        s3Client,
-        new PutObjectCommand(params),
-        { expiresIn: 300 } // 5 minutes expiration
-      );
+      const uploadUrl = await s3.getSignedUrlPromise("putObject", params);
 
       socket.emit("presigned_url", { uploadUrl, fileName });
     } catch (error) {
@@ -141,78 +103,10 @@ io.on("connection", (socket) => {
     }
   });
 
-  //* Step 2: After upload, apply Draco compression
-  socket.on("upload_complete", async ({ fileName }) => {
-    try {
-      console.log(`✅ Upload complete: ${fileName}`);
-      console.log(`🔄 Fetching model from S3 for compression...`);
-
-      // // 1️⃣ **Download the uploaded file from S3**
-      // const getParams = { Bucket: bucketName, Key: fileName };
-      // const { Body } = await s3.send(new GetObjectCommand(getParams));
-      // const fileBuffer = await Body.transformToByteArray();
-
-      // console.log("🔹 File downloaded. Applying Draco compression...");
-
-      // // 2️⃣ **Apply Draco compression**
-      // const io = new NodeIO();
-      // const document = await io.readBinary(Buffer.from(fileBuffer));
-      // await document.transform(draco());
-      // const compressedBuffer = await io.writeBinary(document);
-
-      // ✅ 1️⃣ Download file from S3
-      const getParams = { Bucket: bucketName, Key: fileName };
-      const { Body } = await s3Client.send(new GetObjectCommand(getParams));
-
-      if (!Body) {
-        throw new Error("Failed to get file from S3");
-      }
-
-      // Convert Body (stream) to buffer
-      const chunks = [];
-      for await (const chunk of Body) {
-        chunks.push(chunk);
-      }
-      const fileBuffer = Buffer.concat(chunks);
-
-      console.log("🚀 Draco compression done. Replacing file in S3...");
-
-      // // 3️⃣ **Replace original file with compressed version**
-      // const putParams = {
-      //   Bucket: bucketName,
-      //   Key: fileName, // ✅ Overwrite the existing file
-      //   Body: compressedBuffer,
-      //   ContentType: "model/gltf-binary",
-      // };
-
-      // await s3.send(new PutObjectCommand(putParams));
-
-      // ✅ 2️⃣ Apply Draco compression
-      const io = new NodeIO();
-      const document = await io.readBinary(fileBuffer);
-      await document.transform(draco());
-      const compressedBuffer = await io.writeBinary(document);
-
-      console.log("🚀 Draco compression done. Replacing file in S3...");
-
-      // ✅ 3️⃣ Upload compressed model back to S3
-      const putParams = {
-        Bucket: bucketName,
-        Key: fileName, // ✅ Overwrite the existing file
-        Body: compressedBuffer,
-        ContentType: "model/gltf-binary",
-      };
-
-      await s3Client.send(new PutObjectCommand(putParams));
-
-      console.log("✅ Compressed model saved:", fileName);
-      socket.emit("upload_success", {
-        message: "Upload & compression successful!",
-      });
-    } catch (error) {
-      console.error("❌ Compression Error:", error);
-      socket.emit("upload_error", { message: "Compression failed" });
-    }
+  // ✅ Notify when upload is done
+  socket.on("upload_complete", ({ fileName }) => {
+    console.log(`✅ Upload complete: ${fileName}`);
+    socket.emit("upload_success", { message: "Upload successful!" });
   });
 
   // Release control when the active controller disconnects
