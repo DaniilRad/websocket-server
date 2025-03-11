@@ -30,12 +30,6 @@ const io = new Server(server, {
   },
 });
 
-// const s3 = new AWS.S3({
-//   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-//   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-//   region: process.env.AWS_REGION,
-// });
-
 const s3Client = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
@@ -64,7 +58,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Handle camera updates (only from the active controller)
   socket.on("camera_update", (data) => {
     if (socket.id === activeController) {
       socket.broadcast.emit("camera_update", data);
@@ -74,15 +67,13 @@ io.on("connection", (socket) => {
   //* Handle request for file list
   socket.on("get_files", async () => {
     try {
-      // const data = await s3.listObjectsV2({ Bucket: bucketName }).promise();
       const data = await s3Client.send(
         new ListObjectsV2Command({ Bucket: bucketName })
       );
       const files = data.Contents.map((item) => ({
         name: item.Key,
-        url: `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${item.Key}`,
+        key: item.Key,
       }));
-      console.log("Files list: " + files);
       socket.emit("files_list", files);
     } catch (error) {
       console.error("❌ List Files Error:", error);
@@ -95,7 +86,6 @@ io.on("connection", (socket) => {
     console.log(`🗑 Deleting file: ${fileName}`);
 
     try {
-      // await s3.deleteObject({ Bucket: bucketName, Key: fileName }).promise();
       await s3Client.send(
         new DeleteObjectCommand({ Bucket: bucketName, Key: fileName })
       );
@@ -106,33 +96,16 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("request_presigned_url", async ({ fileName, fileType }) => {
+  socket.on("request_presigned_url", async ({ fileKey }) => {
     try {
-      console.log(`🔗 Generating pre-signed URL for ${fileName}`);
-
-      // const params = {
-      //   Bucket: bucketName,
-      //   Key: fileName,
-      //   Expires: 300,
-      //   ContentType: fileType,
-      // };
-
-      // const uploadUrl = await s3.getSignedUrlPromise("putObject", params);
-
-      const params = {
-        Bucket: bucketName,
-        Key: fileName,
-        ContentType: fileType,
-      };
-
-      // ✅ AWS SDK v3 method for pre-signed URL
-      const uploadUrl = await getSignedUrl(
+      const params = { Bucket: bucketName, Key: fileKey };
+      const preSignedUrl = await getSignedUrl(
         s3Client,
-        new PutObjectCommand(params),
-        { expiresIn: 300 } // 5 minutes expiration
+        new GetObjectCommand(params),
+        { expiresIn: 300 }
       );
 
-      socket.emit("presigned_url", { uploadUrl, fileName });
+      socket.emit("presigned_url", { url: preSignedUrl });
     } catch (error) {
       console.error("❌ Error generating pre-signed URL:", error);
       socket.emit("presigned_url_error", {
@@ -146,19 +119,6 @@ io.on("connection", (socket) => {
     try {
       console.log(`✅ Upload complete: ${fileName}`);
       console.log(`🔄 Fetching model from S3 for compression...`);
-
-      // // 1️⃣ **Download the uploaded file from S3**
-      // const getParams = { Bucket: bucketName, Key: fileName };
-      // const { Body } = await s3.send(new GetObjectCommand(getParams));
-      // const fileBuffer = await Body.transformToByteArray();
-
-      // console.log("🔹 File downloaded. Applying Draco compression...");
-
-      // // 2️⃣ **Apply Draco compression**
-      // const io = new NodeIO();
-      // const document = await io.readBinary(Buffer.from(fileBuffer));
-      // await document.transform(draco());
-      // const compressedBuffer = await io.writeBinary(document);
 
       // ✅ 1️⃣ Download file from S3
       const getParams = { Bucket: bucketName, Key: fileName };
@@ -176,16 +136,6 @@ io.on("connection", (socket) => {
       const fileBuffer = Buffer.concat(chunks);
 
       console.log("🚀 Draco compression done. Replacing file in S3...");
-
-      // // 3️⃣ **Replace original file with compressed version**
-      // const putParams = {
-      //   Bucket: bucketName,
-      //   Key: fileName, // ✅ Overwrite the existing file
-      //   Body: compressedBuffer,
-      //   ContentType: "model/gltf-binary",
-      // };
-
-      // await s3.send(new PutObjectCommand(putParams));
 
       // ✅ 2️⃣ Apply Draco compression
       const io = new NodeIO();
