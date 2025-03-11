@@ -3,7 +3,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
-const AWS = require("aws-sdk");
+const AWS = require("@aws-sdk/client-s3");
 const { NodeIO } = require("@gltf-transform/core");
 const { draco } = require("@gltf-transform/functions");
 
