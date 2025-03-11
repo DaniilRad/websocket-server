@@ -103,6 +103,34 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("request_presigned_url", async ({ fileName, fileType }) => {
+    try {
+      console.log(`🔗 Generating pre-signed URL for ${fileName}`);
+
+      const params = {
+        Bucket: bucketName,
+        Key: fileName,
+        Expires: 300, // URL valid for 5 minutes
+        ContentType: fileType,
+      };
+
+      const uploadUrl = await s3.getSignedUrlPromise("putObject", params);
+
+      socket.emit("presigned_url", { uploadUrl, fileName });
+    } catch (error) {
+      console.error("❌ Error generating pre-signed URL:", error);
+      socket.emit("presigned_url_error", {
+        message: "Failed to generate upload URL",
+      });
+    }
+  });
+
+  // ✅ Notify when upload is done
+  socket.on("upload_complete", ({ fileName }) => {
+    console.log(`✅ Upload complete: ${fileName}`);
+    socket.emit("upload_success", { message: "Upload successful!" });
+  });
+
   // Release control when the active controller disconnects
   socket.on("disconnect", () => {
     if (socket.id === activeController) {
