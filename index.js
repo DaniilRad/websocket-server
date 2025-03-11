@@ -4,6 +4,8 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 const AWS = require("aws-sdk");
+const { NodeIO } = require("@gltf-transform/core");
+const { draco } = require("@gltf-transform/functions");
 
 dotenv.config();
 
@@ -49,28 +51,6 @@ io.on("connection", (socket) => {
   socket.on("camera_update", (data) => {
     if (socket.id === activeController) {
       socket.broadcast.emit("camera_update", data);
-    }
-  });
-
-  //* Handle file upload
-  socket.on("upload_file", async ({ fileName, fileBuffer, fileType }) => {
-    console.log(`📤 Uploading file: ${fileName}`);
-
-    try {
-      const uploadResult = await s3
-        .upload({
-          Bucket: bucketName,
-          Key: fileName,
-          Body: Buffer.from(fileBuffer, "base64"), // Convert from base64
-          ContentType: fileType,
-        })
-        .promise();
-
-      console.log("✅ File uploaded:", uploadResult.Location);
-      socket.emit("upload_success", { url: uploadResult.Location });
-    } catch (error) {
-      console.error("❌ Upload Error:", error);
-      socket.emit("upload_error", { message: "Failed to upload file" });
     }
   });
 
@@ -125,10 +105,45 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ✅ Notify when upload is done
-  socket.on("upload_complete", ({ fileName }) => {
-    console.log(`✅ Upload complete: ${fileName}`);
-    socket.emit("upload_success", { message: "Upload successful!" });
+  //* Step 2: After upload, apply Draco compression
+  socket.on("upload_complete", async ({ fileName }) => {
+    try {
+      console.log(`✅ Upload complete: ${fileName}`);
+      console.log(`🔄 Fetching model from S3 for compression...`);
+
+      // 1️⃣ **Download the uploaded file from S3**
+      const getParams = { Bucket: bucketName, Key: fileName };
+      const { Body } = await s3.send(new AWS.GetObjectCommand(getParams));
+      const fileBuffer = await Body.transformToByteArray();
+
+      console.log("🔹 File downloaded. Applying Draco compression...");
+
+      // 2️⃣ **Apply Draco compression**
+      const io = new NodeIO();
+      const document = await io.readBinary(Buffer.from(fileBuffer));
+      await document.transform(draco());
+      const compressedBuffer = await io.writeBinary(document);
+
+      console.log("🚀 Draco compression done. Replacing file in S3...");
+
+      // 3️⃣ **Replace original file with compressed version**
+      const putParams = {
+        Bucket: bucketName,
+        Key: fileName, // ✅ Overwrite the existing file
+        Body: compressedBuffer,
+        ContentType: "model/gltf-binary",
+      };
+
+      await s3.send(new AWS.PutObjectCommand(putParams));
+
+      console.log("✅ Compressed model saved:", fileName);
+      socket.emit("upload_success", {
+        message: "Upload & compression successful!",
+      });
+    } catch (error) {
+      console.error("❌ Compression Error:", error);
+      socket.emit("upload_error", { message: "Compression failed" });
+    }
   });
 
   // Release control when the active controller disconnects
