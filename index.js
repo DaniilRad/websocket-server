@@ -81,7 +81,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("request_presigned_url", async ({ fileName, fileType }) => {
+  socket.on("request_presigned_url", async ({ fileName }) => {
     try {
       console.log(`🔗 Generating pre-signed URL for ${fileName}`);
 
@@ -89,7 +89,6 @@ io.on("connection", (socket) => {
         Bucket: bucketName,
         Key: fileName,
         Expires: 300, // URL valid for 5 minutes
-        ContentType: fileType,
       };
 
       const uploadUrl = await s3.getSignedUrlPromise("putObject", params);
@@ -106,6 +105,13 @@ io.on("connection", (socket) => {
   // ✅ Notify when upload is done
   socket.on("upload_complete", ({ fileName }) => {
     console.log(`✅ Upload complete: ${fileName}`);
+
+    const modelUrl = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+
+    // Broadcast event so ModelPage can refresh and load this model
+    socket.broadcast.emit("model_uploaded", { fileName, modelUrl });
+
+    // Notify uploader about success
     socket.emit("upload_success", { message: "Upload successful!" });
   });
 
