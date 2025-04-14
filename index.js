@@ -59,6 +59,13 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Handle settings updates (only from the active controller)
+  socket.on("settings_update_local", (data) => {
+    if (socket.id === activeController) {
+      socket.broadcast.emit("settings_update_local", data);
+    }
+  });
+
   //* Handle request for file list
   socket.on("get_files", async () => {
     try {
