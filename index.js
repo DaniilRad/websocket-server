@@ -32,6 +32,23 @@ const TABLE_NAME = "Models"; // DynamoDB table name
 const PORT = process.env.PORT || 8080;
 let activeController = null; // Store the active controller ID
 
+const params = {
+  TableName: "Models",
+  Item: {
+    id: "kosicka_rozhladna_BIN.stl", // or any sample file name
+    author: "Anonymous",
+    modelUrl: "https://your-bucket-url/kosicka_rozhladna_BIN.stl",
+  },
+};
+
+dynamoDB.put(params, function (err, data) {
+  if (err) {
+    console.log("Error inserting into DynamoDB: ", err);
+  } else {
+    console.log("Item inserted successfully: ", data);
+  }
+});
+
 io.on("connection", (socket) => {
   console.log(`✅ User Connected: ${socket.id}`);
 
@@ -133,10 +150,8 @@ io.on("connection", (socket) => {
   socket.on("upload_complete", async ({ fileName, author }) => {
     console.log(`✅ Upload complete: ${fileName}`);
 
-    // Generate the file URL from S3
     const modelUrl = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
 
-    // Save model metadata in DynamoDB
     const params = {
       TableName: TABLE_NAME,
       Item: {
@@ -147,7 +162,7 @@ io.on("connection", (socket) => {
     };
 
     try {
-      // Put item into DynamoDB
+      // Attempt to put the item into DynamoDB
       await dynamoDB.put(params).promise();
       console.log(`Metadata for ${fileName} saved to DynamoDB.`);
 
@@ -157,9 +172,11 @@ io.on("connection", (socket) => {
       // Notify uploader about success
       socket.emit("upload_success", { message: "Upload successful!" });
     } catch (error) {
+      // Detailed logging for the error
       console.error("❌ Error saving metadata to DynamoDB:", error);
       socket.emit("upload_error", {
-        message: "Failed to save model metadata.",
+        message:
+          "Failed to save model metadata. Error details: " + error.message,
       });
     }
   });
