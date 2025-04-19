@@ -25,7 +25,10 @@ const s3 = new AWS.S3({
   region: process.env.AWS_REGION,
 });
 
+const dynamoDB = new AWS.DynamoDB.DocumentClient(); // Initialize DynamoDB Document Client
 const bucketName = process.env.AWS_BUCKET_NAME;
+
+const TABLE_NAME = "Models"; // DynamoDB table name
 const PORT = process.env.PORT || 8080;
 let activeController = null; // Store the active controller ID
 
@@ -117,16 +120,48 @@ io.on("connection", (socket) => {
   });
 
   // ✅ Notify when upload is done
-  socket.on("upload_complete", ({ fileName }) => {
+  // socket.on("upload_complete", ({ fileName }) => {
+  //   console.log(`✅ Upload complete: ${fileName}`);
+
+  //   const modelUrl = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+
+  //   socket.broadcast.emit("model_uploaded", { fileName, modelUrl });
+
+  //   socket.emit("upload_success", { message: "Upload successful!" });
+  // });
+
+  socket.on("upload_complete", async ({ fileName, author }) => {
     console.log(`✅ Upload complete: ${fileName}`);
 
+    // Generate the file URL from S3
     const modelUrl = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
 
-    // Broadcast event so ModelPage can refresh and load this model
-    socket.broadcast.emit("model_uploaded", { fileName, modelUrl });
+    // Save model metadata in DynamoDB
+    const params = {
+      TableName: TABLE_NAME,
+      Item: {
+        id: fileName, // Using the file name as unique identifier
+        author: author || "Anonymous", // Default to "Anonymous" if no author is provided
+        modelUrl: modelUrl,
+      },
+    };
 
-    // Notify uploader about success
-    socket.emit("upload_success", { message: "Upload successful!" });
+    try {
+      // Put item into DynamoDB
+      await dynamoDB.put(params).promise();
+      console.log(`Metadata for ${fileName} saved to DynamoDB.`);
+
+      // Broadcast event so the ModelPage can refresh and load this model
+      socket.broadcast.emit("model_uploaded", { fileName, modelUrl });
+
+      // Notify uploader about success
+      socket.emit("upload_success", { message: "Upload successful!" });
+    } catch (error) {
+      console.error("❌ Error saving metadata to DynamoDB:", error);
+      socket.emit("upload_error", {
+        message: "Failed to save model metadata.",
+      });
+    }
   });
 
   // Release control when the active controller disconnects
