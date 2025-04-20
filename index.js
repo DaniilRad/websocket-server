@@ -165,7 +165,7 @@ io.on("connection", (socket) => {
       TableName: TABLE_NAME,
       Item: {
         id: fileName, // Using the file name as unique identifier
-        author: author, // Default to "Anonymous" if no author is provided
+        author: author || "Anonymous", // Ensure that the author is set, defaulting to "Anonymous"
         modelUrl: modelUrl,
       },
     };
