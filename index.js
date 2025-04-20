@@ -32,23 +32,6 @@ const TABLE_NAME = "Models"; // DynamoDB table name
 const PORT = process.env.PORT || 8080;
 let activeController = null; // Store the active controller ID
 
-const params = {
-  TableName: "Models",
-  Item: {
-    id: "kosicka_rozhladna_BIN.stl", // or any sample file name
-    author: "Anonymous",
-    modelUrl: "https://your-bucket-url/kosicka_rozhladna_BIN.stl",
-  },
-};
-
-dynamoDB.put(params, function (err, data) {
-  if (err) {
-    console.log("Error inserting into DynamoDB: ", err);
-  } else {
-    console.log("Item inserted successfully: ", data);
-  }
-});
-
 io.on("connection", (socket) => {
   console.log(`✅ User Connected: ${socket.id}`);
 
@@ -90,12 +73,37 @@ io.on("connection", (socket) => {
   socket.on("get_files", async () => {
     try {
       const data = await s3.listObjectsV2({ Bucket: bucketName }).promise();
-      const files = data.Contents.map((item) => ({
-        name: item.Key,
-        url: `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${item.Key}`,
-      }));
-      console.log("Files list: " + files);
-      socket.emit("files_list", files);
+      const fileNames = data.Contents.map((item) => item.Key);
+
+      // Fetch author data for each file from DynamoDB
+      const filesWithAuthors = await Promise.all(
+        fileNames.map(async (fileName) => {
+          const params = {
+            TableName: TABLE_NAME,
+            Key: { id: fileName },
+          };
+
+          try {
+            const result = await dynamoDB.get(params).promise();
+            const author = result.Item ? result.Item.author : "Anonymous";
+            return {
+              name: fileName,
+              url: `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`,
+              author: author,
+            };
+          } catch (error) {
+            console.error("❌ Error fetching author for", fileName, error);
+            return {
+              name: fileName,
+              url: `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`,
+              author: "Anonymous",
+            };
+          }
+        })
+      );
+
+      console.log("Files list with authors:", filesWithAuthors);
+      socket.emit("files_list", filesWithAuthors);
     } catch (error) {
       console.error("❌ List Files Error:", error);
       socket.emit("files_error", { message: "Failed to list files" });
