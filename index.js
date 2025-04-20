@@ -85,7 +85,7 @@ io.on("connection", (socket) => {
 
           try {
             const result = await dynamoDB.get(params).promise();
-            const author = result.Item ? result.Item.author : "Anonymous";
+            const author = result.Item && result.Item.author;
             console.log("Author fetched for", fileName, ":", author);
             return {
               name: fileName,
