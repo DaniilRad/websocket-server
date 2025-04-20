@@ -176,7 +176,7 @@ io.on("connection", (socket) => {
       console.log(`Metadata for ${fileName} saved to DynamoDB.`);
 
       // Broadcast event so the ModelPage can refresh and load this model
-      socket.broadcast.emit("model_uploaded", { fileName, modelUrl });
+      socket.broadcast.emit("model_uploaded", { fileName, modelUrl, author });
 
       // Notify uploader about success
       socket.emit("upload_success", { message: "Upload successful!" });
