@@ -86,6 +86,7 @@ io.on("connection", (socket) => {
           try {
             const result = await dynamoDB.get(params).promise();
             const author = result.Item ? result.Item.author : "Anonymous";
+            console.log("Author fetched for", fileName, ":", author);
             return {
               name: fileName,
               url: `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`,
