@@ -25,17 +25,16 @@ const s3 = new AWS.S3({
   region: process.env.AWS_REGION,
 });
 
-const dynamoDB = new AWS.DynamoDB.DocumentClient(); // Initialize DynamoDB Document Client
+const dynamoDB = new AWS.DynamoDB.DocumentClient();
 const bucketName = process.env.AWS_BUCKET_NAME;
 
-const TABLE_NAME = "Models"; // DynamoDB table name
+const TABLE_NAME = "Models";
 const PORT = process.env.PORT || 8080;
-let activeController = null; // Store the active controller ID
+let activeController = null;
 
 io.on("connection", (socket) => {
   console.log(`✅ User Connected: ${socket.id}`);
 
-  // Handle control request
   socket.on("request_control", () => {
     console.log("ActiveControler: " + activeController);
     if (!activeController || socket.id === activeController) {
@@ -48,24 +47,21 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Handle camera updates (only from the active controller)
   socket.on("camera_update", (data) => {
     if (socket.id === activeController) {
       socket.broadcast.emit("camera_update", data);
     }
   });
 
-  // Handle settings updates (only from the active controller)
   socket.on("settings_update", (data) => {
     if (socket.id === activeController) {
       socket.broadcast.emit("settings_update", data);
     }
   });
 
-  // Handle settings updates (only from the active controller)
   socket.on("settings_update_local", (data) => {
     if (socket.id === activeController) {
-      socket.emit("settings_update_local", data); // Emit to the sender
+      socket.emit("settings_update_local", data);
     }
   });
 
@@ -165,7 +161,7 @@ io.on("connection", (socket) => {
       TableName: TABLE_NAME,
       Item: {
         id: fileName, // Using the file name as unique identifier
-        author: author || "Anonymous", // Ensure that the author is set, defaulting to "Anonymous"
+        author: author, // Default to "Anonymous" if no author is provided
         modelUrl: modelUrl,
       },
     };
@@ -173,7 +169,7 @@ io.on("connection", (socket) => {
     try {
       // Attempt to put the item into DynamoDB
       await dynamoDB.put(params).promise();
-      console.log(`Metadata for ${fileName} saved to DynamoDB.`);
+      // console.log(`Metadata for ${fileName} saved to DynamoDB.`);
 
       // Broadcast event so the ModelPage can refresh and load this model
       socket.broadcast.emit("model_uploaded", { fileName, modelUrl, author });
