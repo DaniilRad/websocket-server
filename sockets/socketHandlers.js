@@ -3,11 +3,11 @@ const {
   deleteFile,
   generatePresignedUrl,
   getModelUrl,
-} = require("../services/s3Service");
+} = require("../sercices/s3Service");
 const {
-  getAuthorByFileName,
   saveModelMetadata,
-} = require("../services/dynamoService");
+  getModelAuthor,
+} = require("../sercices/dynamoService");
 
 let activeController = null; // Udržiava ID aktuálneho ovládača
 
@@ -49,7 +49,7 @@ function registerSocketHandlers(io) {
         const fileNames = await listFiles();
         const filesWithAuthors = await Promise.all(
           fileNames.map(async (fileName) => {
-            const author = await getAuthorByFileName(fileName);
+            const author = await getModelAuthor(fileName);
             return {
               name: fileName,
               url: getModelUrl(fileName),
