@@ -7,6 +7,7 @@ const {
 const {
   saveModelMetadata,
   getModelAuthor,
+  getAllModels,
 } = require("../sercices/dynamoService");
 
 // Current active controller (Only one can control at a time)
