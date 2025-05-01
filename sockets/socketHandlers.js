@@ -51,44 +51,16 @@ function registerSocketHandlers(io) {
       }
     });
 
-    // Emit list of files
+    // Emit list of files from DynamoDB (with author information)
     socket.on("get_files", async () => {
       try {
-        const fileNames = await listFiles();
-        const filesWithAuthors = await Promise.all(
-          fileNames.map(async (fileName) => {
-            const author = await getModelAuthor(fileName);
-            return {
-              name: fileName,
-              url: getModelUrl(fileName),
-              author: author || "Anonymous",
-            };
-          })
-        );
-        socket.emit("files_list", filesWithAuthors);
+        // Fetch all models ids (names) metadata from DynamoDB
+        const modelsIDs = await getAllModels();
+        console.log("Models IDs:", modelsIDs);
+        socket.emit("files_list", modelsIDs);
       } catch (error) {
         console.error("❌ List Files Error:", error);
         socket.emit("files_error", { message: "Failed to list files" });
-      }
-    });
-
-    // Emit list of files from DynamoDB (with author information)
-    socket.on("get_files2", async () => {
-      try {
-        // Fetch all models metadata from DynamoDB
-        const fileList = await getAllModels();
-
-        // Transform the data to add the model URL
-        const filesWithAuthors = fileList.map((file) => ({
-          name: file.name,
-          url: getModelUrl(file.name),
-          author: file.author || "Anonymous", // Default to "Anonymous" if no author
-        }));
-        console.log("Files with authors:", filesWithAuthors);
-        socket.emit("files_list2", filesWithAuthors);
-      } catch (error) {
-        console.error("❌ List Files Error:", error);
-        socket.emit("files_error2", { message: "Failed to list files" });
       }
     });
 

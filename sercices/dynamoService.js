@@ -37,13 +37,12 @@ async function getAllModels() {
     TableName: TABLE_NAME,
   };
 
-  try {
-    const data = await dynamoDB.scan(params).promise(); // scan all models
-    return data.Items || [];
-  } catch (error) {
-    console.error("❌ Error fetching models from DynamoDB:", error);
-    throw new Error("Failed to fetch models from DynamoDB.");
-  }
+  //scan table and return only ids of items
+  const data = await dynamoDB.scan(params).promise();
+  const modelsIds = data.Items.map((item) => ({
+    id: item.id,
+  }));
+  return modelsIds;
 }
 
 module.exports = { getModelAuthor, saveModelMetadata, getAllModels };
