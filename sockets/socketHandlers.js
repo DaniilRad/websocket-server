@@ -83,7 +83,7 @@ function registerSocketHandlers(io) {
           url: getModelUrl(file.name),
           author: file.author || "Anonymous", // Default to "Anonymous" if no author
         }));
-
+        console.log("Files with authors:", filesWithAuthors);
         socket.emit("files_list2", filesWithAuthors);
       } catch (error) {
         console.error("❌ List Files Error:", error);
