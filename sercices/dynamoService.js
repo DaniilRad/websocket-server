@@ -31,4 +31,19 @@ const saveModelMetadata = async (fileName, author, modelUrl) => {
   await dynamoDB.put(params).promise();
 };
 
-module.exports = { getModelAuthor, saveModelMetadata };
+// Get all models from DynamoDB (with metadata like author)
+async function getAllModels() {
+  const params = {
+    TableName: TABLE_NAME,
+  };
+
+  try {
+    const data = await dynamoDB.scan(params).promise(); // scan all models
+    return data.Items || [];
+  } catch (error) {
+    console.error("❌ Error fetching models from DynamoDB:", error);
+    throw new Error("Failed to fetch models from DynamoDB.");
+  }
+}
+
+module.exports = { getModelAuthor, saveModelMetadata, getAllModels };
