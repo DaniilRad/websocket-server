@@ -41,8 +41,10 @@ async function getAllModels() {
   const data = await dynamoDB.scan(params).promise();
   const modelsIds = data.Items.map((item) => ({
     id: item.id,
+    author: item.author,
+    modelUrl: item.modelUrl,
   }));
-  return modelsIds;
+  return modelsList;
 }
 
 module.exports = { getModelAuthor, saveModelMetadata, getAllModels };

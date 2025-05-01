@@ -55,9 +55,9 @@ function registerSocketHandlers(io) {
     socket.on("get_files", async () => {
       try {
         // Fetch all models ids (names) metadata from DynamoDB
-        const modelsIDs = await getAllModels();
-        console.log("Models IDs:", modelsIDs);
-        socket.emit("files_list", modelsIDs);
+        const modelsList = await getAllModels();
+        console.log("Models IDs:", modelsList);
+        socket.emit("files_list", modelsList);
       } catch (error) {
         console.error("❌ List Files Error:", error);
         socket.emit("files_error", { message: "Failed to list files" });
