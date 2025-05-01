@@ -39,10 +39,10 @@ async function getAllModels() {
 
   //scan table and return only ids of items
   const data = await dynamoDB.scan(params).promise();
-  const modelsIds = data.Items.map((item) => ({
+  const modelsList = data.Items.map((item) => ({
     id: item.id,
     author: item.author,
-    modelUrl: item.modelUrl,
+    url: item.modelUrl,
   }));
   return modelsList;
 }
