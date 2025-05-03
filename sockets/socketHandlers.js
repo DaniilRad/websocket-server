@@ -94,7 +94,7 @@ function registerSocketHandlers(io) {
         const modelUrl = getModelUrl(fileName);
         console.log("author", author);
         await saveModelMetadata(fileName, author, modelUrl);
-        socket.broadcast.emit("model_uploaded", { fileName, modelUrl, author });
+        socket.emit("model_uploaded", { fileName, modelUrl, author });
         socket.emit("upload_success", { message: "Upload successful!" });
       } catch (error) {
         console.error("❌ Error saving metadata:", error);
