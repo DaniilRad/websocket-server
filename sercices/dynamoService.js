@@ -19,6 +19,7 @@ const getModelAuthor = async (fileName) => {
 };
 
 const saveModelMetadata = async (fileName, author, modelUrl) => {
+  console.log("SAVE_MODEL_METADATA: ", fileName, author, modelUrl);
   const params = {
     TableName: TABLE_NAME,
     Item: {

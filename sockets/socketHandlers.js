@@ -1,5 +1,4 @@
 const {
-  listFiles,
   deleteFile,
   generatePresignedUrl,
   getModelUrl,
@@ -16,8 +15,6 @@ let activeController = null;
 // All socket handlers
 function registerSocketHandlers(io) {
   io.on("connection", (socket) => {
-    console.log(`✅ User Connected: ${socket.id}`);
-
     // Connection event for ControlPage
     socket.on("request_control", () => {
       if (!activeController || socket.id === activeController) {
@@ -40,7 +37,7 @@ function registerSocketHandlers(io) {
     // Emit settings to ModelPage from ControlPage
     socket.on("settings_update", (data) => {
       if (socket.id === activeController) {
-        socket.broadcast.emit("settings_update", data);
+        io.emit("settings_update", data);
       }
     });
 
@@ -51,12 +48,14 @@ function registerSocketHandlers(io) {
       }
     });
 
+    socket.on("model_switch", (currentIndex) => {
+      socket.broadcast.emit("update_index", currentIndex);
+    });
+
     // Emit list of files from DynamoDB (with author information)
     socket.on("get_files", async () => {
       try {
-        // Fetch all models ids (names) metadata from DynamoDB
         const modelsList = await getAllModels();
-        console.log("Models IDs:", modelsList);
         socket.emit("files_list", modelsList);
       } catch (error) {
         console.error("❌ List Files Error:", error);
@@ -92,10 +91,8 @@ function registerSocketHandlers(io) {
     socket.on("upload_complete", async ({ fileName, author }) => {
       try {
         const modelUrl = getModelUrl(fileName);
-        console.log("author", author);
         await saveModelMetadata(fileName, author, modelUrl);
-        socket.broadcast.emit("model_uploaded", { fileName, modelUrl, author });
-        // socket.emit("upload_success", { message: "Upload successful!" });
+        io.emit("model_uploaded", { fileName, modelUrl, author });
       } catch (error) {
         console.error("❌ Error saving metadata:", error);
         socket.emit("upload_error", {
