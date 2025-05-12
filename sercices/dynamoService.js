@@ -18,14 +18,15 @@ const getModelAuthor = async (fileName) => {
   }
 };
 
-const saveModelMetadata = async (fileName, author, modelUrl) => {
-  console.log("SAVE_MODEL_METADATA: ", fileName, author, modelUrl);
+const saveModelMetadata = async (fileName, author, modelUrl, folder) => {
+  console.log("SAVE_MODEL_METADATA: ", fileName, author, modelUrl, folder);
   const params = {
     TableName: TABLE_NAME,
     Item: {
       id: fileName,
       author: author,
       modelUrl: modelUrl,
+      folder: folder,
     },
   };
 
@@ -44,8 +45,18 @@ async function getAllModels() {
     id: item.id,
     author: item.author,
     url: item.modelUrl,
+    folder: item.folder,
   }));
-  return modelsList;
+
+  const tukeModels = modelsList.filter(
+    (model) => model.folder === "tuke-models"
+  );
+  const userModels = modelsList.filter(
+    (model) => model.folder === "user-models"
+  );
+
+  // Return both lists
+  return { tukeModels, userModels };
 }
 
 module.exports = { getModelAuthor, saveModelMetadata, getAllModels };

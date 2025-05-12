@@ -1,5 +1,5 @@
 const AWS = require("aws-sdk");
-const dotenv = require('dotenv')
+const dotenv = require("dotenv");
 dotenv.config();
 
 const s3 = new AWS.S3({
@@ -19,17 +19,18 @@ async function deleteFile(fileName) {
   await s3.deleteObject({ Bucket: bucketName, Key: fileName }).promise();
 }
 
-async function generatePresignedUrl(fileName) {
+async function generatePresignedUrl(fileName, folder) {
+  const key = `${folder}/${fileName}`;
   const params = {
     Bucket: bucketName,
-    Key: fileName,
+    Key: key,
     Expires: 300, // 5 minút
   };
   return s3.getSignedUrlPromise("putObject", params);
 }
 
-function getModelUrl(fileName) {
-  return `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+function getModelUrl(fileName, folder) {
+  return `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${folder}/${fileName}`;
 }
 
 module.exports = {

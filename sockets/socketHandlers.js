@@ -41,6 +41,12 @@ function registerSocketHandlers(io) {
       }
     });
 
+    socket.on("model_settings_update", (data) => {
+      if (socket.id === activeController) {
+        io.emit("model_settings_update", data);
+      }
+    });
+
     // Emit settings to ControlPage from ControlPage
     socket.on("settings_update_local", (data) => {
       if (socket.id === activeController) {
@@ -50,13 +56,14 @@ function registerSocketHandlers(io) {
 
     socket.on("model_switch", (currentIndex) => {
       socket.broadcast.emit("update_index", currentIndex);
+      console.log("New index ", currentIndex);
     });
 
     // Emit list of files from DynamoDB (with author information)
     socket.on("get_files", async () => {
       try {
-        const modelsList = await getAllModels();
-        socket.emit("files_list", modelsList);
+        const { tukeModels, userModels } = await getAllModels();
+        socket.emit("files_list", { tukeModels, userModels });
       } catch (error) {
         console.error("❌ List Files Error:", error);
         socket.emit("files_error", { message: "Failed to list files" });
@@ -75,9 +82,9 @@ function registerSocketHandlers(io) {
     });
 
     // Emit pre-signed URL of file for uploading
-    socket.on("request_presigned_url", async ({ fileName }) => {
+    socket.on("request_presigned_url", async ({ fileName, folder }) => {
       try {
-        const uploadUrl = await generatePresignedUrl(fileName);
+        const uploadUrl = await generatePresignedUrl(fileName, folder);
         socket.emit("presigned_url", { uploadUrl, fileName });
       } catch (error) {
         console.error("❌ Error generating pre-signed URL:", error);
@@ -88,11 +95,11 @@ function registerSocketHandlers(io) {
     });
 
     // Emit notification of upload completion
-    socket.on("upload_complete", async ({ fileName, author }) => {
+    socket.on("upload_complete", async ({ fileName, author, folder }) => {
       try {
-        const modelUrl = getModelUrl(fileName);
-        await saveModelMetadata(fileName, author, modelUrl);
-        io.emit("model_uploaded", { fileName, modelUrl, author });
+        const modelUrl = getModelUrl(fileName, folder);
+        await saveModelMetadata(fileName, author, modelUrl, folder);
+        io.emit("model_uploaded", { fileName, modelUrl, author, folder });
       } catch (error) {
         console.error("❌ Error saving metadata:", error);
         socket.emit("upload_error", {
@@ -105,7 +112,7 @@ function registerSocketHandlers(io) {
     socket.on("disconnect", () => {
       if (socket.id === activeController) {
         console.log(
-          `❌ Controller Disconnected: ${socket.id}, freeing control.`
+          `❌🎮 Controller Disconnected: ${socket.id}, freeing control.`
         );
         activeController = null;
       } else {
