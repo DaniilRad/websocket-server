@@ -56,7 +56,6 @@ function registerSocketHandlers(io) {
 
     socket.on("model_switch", (currentIndex) => {
       socket.broadcast.emit("update_index", currentIndex);
-      console.log("New index ", currentIndex);
     });
 
     // Emit list of files from DynamoDB (with author information)
