@@ -70,10 +70,10 @@ function registerSocketHandlers(io) {
     });
 
     // Emit notification of deleted file
-    socket.on("delete_file", async ({ fileName }) => {
+    socket.on("delete_file", async ({ fileName, folder }) => {
       try {
-        await deleteFile(fileName);
-        socket.emit("delete_success", { fileName });
+        await deleteFile(fileName, folder);
+        socket.emit("delete_success", { fileName, folder });
       } catch (error) {
         console.error("❌ Delete Error:", error);
         socket.emit("delete_error", { message: "Failed to delete file" });

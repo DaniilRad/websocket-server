@@ -18,6 +18,23 @@ const getModelAuthor = async (fileName) => {
   }
 };
 
+const deleteFileFromDatabase = async (fileName) => {
+  try {
+    const params = {
+      TableName: TABLE_NAME,
+      Key: {
+        id: fileName,
+      },
+    };
+
+    await dynamoDB.delete(params).promise();
+    console.log(`File metadata for ${fileName} deleted from DynamoDB.`);
+  } catch (error) {
+    console.error("❌ DynamoDB Delete Error:", error);
+    throw new Error("Failed to delete file from DynamoDB");
+  }
+};
+
 const saveModelMetadata = async (fileName, author, modelUrl, folder) => {
   console.log("SAVE_MODEL_METADATA: ", fileName, author, modelUrl, folder);
   const params = {
@@ -59,4 +76,9 @@ async function getAllModels() {
   return { tukeModels, userModels };
 }
 
-module.exports = { getModelAuthor, saveModelMetadata, getAllModels };
+module.exports = {
+  getModelAuthor,
+  saveModelMetadata,
+  getAllModels,
+  deleteFileFromDatabase,
+};
