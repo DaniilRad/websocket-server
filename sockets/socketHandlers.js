@@ -5,9 +5,16 @@ const {
 } = require("../sercices/s3Service");
 const {
   saveModelMetadata,
-  getModelAuthor,
   getAllModels,
 } = require("../sercices/dynamoService");
+
+require("dotenv").config();
+function isValidAdmin({ username, password }) {
+  return (
+    username === process.env.ADMIN_USERNAME &&
+    password === process.env.ADMIN_PASSWORD
+  );
+}
 
 // Current active controller (Only one can control at a time)
 let activeController = null;
@@ -15,6 +22,13 @@ let activeController = null;
 // All socket handlers
 function registerSocketHandlers(io) {
   io.on("connection", (socket) => {
+    socket.on("admin_login", ({ username, password }) => {
+      if (isValidAdmin({ username, password })) {
+        socket.emit("login_success");
+      } else {
+        socket.emit("login_failed", { message: "Invalid credentials" });
+      }
+    });
     // Connection event for ControlPage
     socket.on("request_control", () => {
       if (!activeController || socket.id === activeController) {
